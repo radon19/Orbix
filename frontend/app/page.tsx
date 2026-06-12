@@ -6,9 +6,9 @@ import { OrbitControls, Sphere } from "@react-three/drei";
 import * as THREE from "three";
 
 const EARTH_RADIUS_KM = 6371;
-const TIME_SCALE = 100;
 
-function FleetManager({ data, targetId, isTracking }: { data: any, targetId: number, isTracking: boolean }) {
+// --- Fleet Manager (Now accepts dynamic timeScale) ---
+function FleetManager({ data, targetId, isTracking, timeScale }: { data: any, targetId: number, isTracking: boolean, timeScale: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const targetRef = useRef<THREE.Mesh>(null);
 
@@ -54,7 +54,8 @@ function FleetManager({ data, targetId, isTracking }: { data: any, targetId: num
       const sat = parsedFleet[i];
       if (sat.id === targetId) continue; 
 
-      sat.position.applyAxisAngle(sat.axis, sat.speed * delta * TIME_SCALE);
+      // Applied dynamic timeScale here
+      sat.position.applyAxisAngle(sat.axis, sat.speed * delta * timeScale);
 
       dummy.position.copy(sat.position);
       dummy.updateMatrix();
@@ -62,12 +63,10 @@ function FleetManager({ data, targetId, isTracking }: { data: any, targetId: num
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
 
-    // --- UPDATED: Target Satellite & Camera Animation ---
     if (targetRef.current && targetSatData) {
-      // Calculate exactly how far the satellite moves this frame
-      const angleMoved = targetSatData.speed * delta * TIME_SCALE;
+      // Applied dynamic timeScale here
+      const angleMoved = targetSatData.speed * delta * timeScale;
       
-      // Move the satellite
       targetSatData.position.applyAxisAngle(targetSatData.axis, angleMoved);
       targetRef.current.position.copy(targetSatData.position);
 
@@ -75,14 +74,9 @@ function FleetManager({ data, targetId, isTracking }: { data: any, targetId: num
         const controls = state.controls as any; 
         
         if (isTracking) {
-          // 1. Look at the satellite (Focus)
           controls.target.lerp(targetRef.current.position, 0.05);
-          
-          // 2. FOLLOW the satellite (Move the camera)
-          // We apply the exact same orbital math to the camera itself!
           state.camera.position.applyAxisAngle(targetSatData.axis, angleMoved);
         } else {
-          // Stop following and glide the focus back to Earth
           controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
         }
         controls.update(); 
@@ -116,6 +110,9 @@ export default function SatelliteTracker() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isTracking, setIsTracking] = useState<boolean>(false);
+  
+  // --- NEW: Time Scale Control State (Default to 1 for Real-Time) ---
+  const [timeScale, setTimeScale] = useState<number>(1);
 
   const fetchGlobeData = async (noradId: number) => {
     setLoading(true);
@@ -150,9 +147,9 @@ export default function SatelliteTracker() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", backgroundColor: "#000" }}>
       
-      <div style={{ position: "absolute", top: 20, left: 20, zIndex: 10, color: "white", fontFamily: "sans-serif" }}>
-        <h2>Live Satellite Tracker</h2>
-        <form onSubmit={handleSearch} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
+      <div style={{ position: "absolute", top: 20, left: 20, zIndex: 10, color: "white", fontFamily: "sans-serif", display: "flex", flexDirection: "column", gap: "12px" }}>
+        <h2 style={{ margin: 0 }}>Live Satellite Tracker</h2>
+        <form onSubmit={handleSearch} style={{ display: "flex", gap: "8px" }}>
           <input 
             type="number" 
             value={inputState} 
@@ -183,9 +180,30 @@ export default function SatelliteTracker() {
             {isTracking ? "Stop Tracking" : "Track Target"}
           </button>
         </form>
-        {loading && <p>Loading coordinates...</p>}
-        {error && <p style={{ color: "#ff4444" }}>{error}</p>}
-        {data && !loading && <p style={{ color: "#88ccff" }}>Tracking ID: {targetId}</p>}
+
+        {/* --- NEW: Time Scale Slider UI --- */}
+        <div style={{ backgroundColor: "rgba(0,0,0,0.5)", padding: "12px", borderRadius: "8px", width: "fit-content" }}>
+          <label style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+            <span>Simulation Speed:</span>
+            <strong>{timeScale}x</strong>
+          </label>
+          <input 
+            type="range" 
+            min="1" 
+            max="200" 
+            value={timeScale} 
+            onChange={(e) => setTimeScale(Number(e.target.value))}
+            style={{ width: "300px", cursor: "pointer" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#aaa", marginTop: "4px" }}>
+            <span>Real Time</span>
+            <span>Fast Forward</span>
+          </div>
+        </div>
+
+        {loading && <p style={{ margin: 0 }}>Loading coordinates...</p>}
+        {error && <p style={{ color: "#ff4444", margin: 0 }}>{error}</p>}
+        {data && !loading && <p style={{ color: "#88ccff", margin: 0 }}>Tracking ID: {targetId}</p>}
       </div>
 
       <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
@@ -199,7 +217,8 @@ export default function SatelliteTracker() {
           <meshStandardMaterial color="#1e88e5" roughness={0.6} />
         </Sphere>
 
-        <FleetManager data={data} targetId={targetId} isTracking={isTracking} />
+        {/* Passed timeScale into the FleetManager */}
+        <FleetManager data={data} targetId={targetId} isTracking={isTracking} timeScale={timeScale} />
       </Canvas>
     </div>
   );

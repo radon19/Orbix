@@ -6,5 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.136.3",
+    "pandas>=3.0.3",
     "pydantic-settings>=2.14.1",
+    "skyfield>=1.54",
 ]
