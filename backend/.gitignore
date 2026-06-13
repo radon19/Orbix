@@ -10,3 +10,5 @@ __pycache__/
  
 # macOS / OS specific (if you or others use them)
 .DS_Store
+
+.env

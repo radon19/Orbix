@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 import httpx
 import json
 import logging
@@ -37,13 +39,21 @@ ts = load.timescale()
 class ThreatRequest(BaseModel):
     norad_id: int
 
-# api (can/will use spacetrack in future)
+
+# Load variables from .env file
+load_dotenv()
+
 CELESTRAK_SOURCES = {
-    "active.json": "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
-    "debris.json": "https://celestrak.org/NORAD/elements/gp.php?NAME=DEB&FORMAT=json",
-    "rocket.json": "https://celestrak.org/NORAD/elements/gp.php?NAME=R%2FB&FORMAT=json",
-    "lastdays.json": "https://celestrak.org/NORAD/elements/gp.php?GROUP=last-30-days&FORMAT=json"
+    "active.json": os.getenv("CELESTRAK_ACTIVE"),
+    "debris.json": os.getenv("CELESTRAK_DEBRIS"),
+    "rocket.json": os.getenv("CELESTRAK_ROCKET"),
+    "lastdays.json": os.getenv("CELESTRAK_LASTDAYS")
 }
+
+# Verification (optional but recommended)
+if None in CELESTRAK_SOURCES.values():
+    print("WARNING: Some environment variables are missing!")
+
 
 # Determine the absolute path to the data folder so files save correctly
 DATA_DIR = Path(__file__).parent / "data"

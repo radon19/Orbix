@@ -1,225 +1,236 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Sphere } from "@react-three/drei";
-import * as THREE from "three";
+import Link from "next/link";
+import { useState } from "react";
+import axios from "axios";
 
-const EARTH_RADIUS_KM = 6371;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-// --- Fleet Manager (Now accepts dynamic timeScale) ---
-function FleetManager({ data, targetId, isTracking, timeScale }: { data: any, targetId: number, isTracking: boolean, timeScale: number }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const targetRef = useRef<THREE.Mesh>(null);
+export default function LandingPage() {
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncMessage, setSyncMessage] = useState<{text: string, type: 'info' | 'success' | 'error'} | null>(null);
 
-  const parsedFleet = useMemo(() => {
-    if (!data || !data.fleet_positions) return [];
-    
-    return Object.entries(data.fleet_positions).map(([id, nums]: [string, any]) => {
-      const [x, y, z, vx, vy, vz] = nums;
-      const posVec = new THREE.Vector3(x, y, z);
-      const velVec = new THREE.Vector3(vx, vy, vz);
-      
-      const axis = new THREE.Vector3().crossVectors(posVec, velVec).normalize();
-      const speed = velVec.length() / posVec.length(); 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncMessage({ text: "Downloading latest telemetry from Celestrak...", type: 'info' });
 
-      return {
-        id: Number(id),
-        position: new THREE.Vector3(posVec.x / EARTH_RADIUS_KM, posVec.y / EARTH_RADIUS_KM, posVec.z / EARTH_RADIUS_KM),
-        axis,
-        speed
-      };
-    });
-  }, [data]);
-
-  const targetSatData = useMemo(() => {
-    if (!data || !data.target_satellite) return null;
-    const [x, y, z, vx, vy, vz] = data.target_satellite.data;
-    const posVec = new THREE.Vector3(x, y, z);
-    const velVec = new THREE.Vector3(vx, vy, vz);
-    
-    return {
-      position: new THREE.Vector3(posVec.x / EARTH_RADIUS_KM, posVec.y / EARTH_RADIUS_KM, posVec.z / EARTH_RADIUS_KM),
-      axis: new THREE.Vector3().crossVectors(posVec, velVec).normalize(),
-      speed: velVec.length() / posVec.length()
-    };
-  }, [data]);
-
-  useFrame((state, delta) => {
-    if (!meshRef.current) return;
-    const dummy = new THREE.Object3D();
-
-    let instanceIdx = 0;
-    for (let i = 0; i < parsedFleet.length; i++) {
-      const sat = parsedFleet[i];
-      if (sat.id === targetId) continue; 
-
-      // Applied dynamic timeScale here
-      sat.position.applyAxisAngle(sat.axis, sat.speed * delta * timeScale);
-
-      dummy.position.copy(sat.position);
-      dummy.updateMatrix();
-      meshRef.current.setMatrixAt(instanceIdx++, dummy.matrix);
-    }
-    meshRef.current.instanceMatrix.needsUpdate = true;
-
-    if (targetRef.current && targetSatData) {
-      // Applied dynamic timeScale here
-      const angleMoved = targetSatData.speed * delta * timeScale;
-      
-      targetSatData.position.applyAxisAngle(targetSatData.axis, angleMoved);
-      targetRef.current.position.copy(targetSatData.position);
-
-      if (state.controls) {
-        const controls = state.controls as any; 
-        
-        if (isTracking) {
-          controls.target.lerp(targetRef.current.position, 0.05);
-          state.camera.position.applyAxisAngle(targetSatData.axis, angleMoved);
-        } else {
-          controls.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-        }
-        controls.update(); 
-      }
-    }
-  });
-
-  return (
-    <>
-      {parsedFleet.length > 0 && (
-        <instancedMesh ref={meshRef} args={[undefined, undefined, parsedFleet.length - 1]}>
-          <sphereGeometry args={[0.0025, 8, 8]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.6} />
-        </instancedMesh>
-      )}
-
-      {targetSatData && (
-        <mesh ref={targetRef} position={targetSatData.position}>
-          <sphereGeometry args={[0.0075, 16, 16]} />
-          <meshBasicMaterial color="#ff3300" />
-        </mesh>
-      )}
-    </>
-  );
-}
-
-export default function SatelliteTracker() {
-  const [targetId, setTargetId] = useState<number>(902);
-  const [inputState, setInputState] = useState<string>("902");
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isTracking, setIsTracking] = useState<boolean>(false);
-  
-  // --- NEW: Time Scale Control State (Default to 1 for Real-Time) ---
-  const [timeScale, setTimeScale] = useState<number>(1);
-
-  const fetchGlobeData = async (noradId: number) => {
-    setLoading(true);
-    setError(null);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/globe?target_norad_id=${noradId}`);
-      if (!response.ok) throw new Error("Satellite not found in database.");
-      
-      const result = await response.json();
-      setData(result);
-      setTargetId(noradId);
-      setInputState(noradId.toString());
-    } catch (err: any) {
-      setError(err.message);
+      await axios.post(`${API_BASE_URL}/trigger-update`);
+      setSyncMessage({ text: "✅ Database synchronized successfully!", type: 'success' });
+      setTimeout(() => setSyncMessage(null), 5000);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || "❌ Error: Ensure your FastAPI backend is running.";
+      setSyncMessage({ text: errorMessage, type: 'error' });
     } finally {
-      setLoading(false);
+      setIsSyncing(false);
     }
   };
 
-  useEffect(() => {
-    fetchGlobeData(902);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputState.trim() === "") return;
-    setIsTracking(false); 
-    fetchGlobeData(Number(inputState));
-  };
-
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative", backgroundColor: "#000" }}>
+    <main style={{ 
+      minHeight: "100vh", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      backgroundColor: "#050814",
+      backgroundImage: "radial-gradient(circle at 50% 0%, #1a2340 0%, #050814 70%)",
+      padding: "30px 20px",
+      position: "relative",
+      overflowX: "hidden"
+    }}>
       
-      <div style={{ position: "absolute", top: 20, left: 20, zIndex: 10, color: "white", fontFamily: "sans-serif", display: "flex", flexDirection: "column", gap: "12px" }}>
-        <h2 style={{ margin: 0 }}>Live Satellite Tracker</h2>
-        <form onSubmit={handleSearch} style={{ display: "flex", gap: "8px" }}>
-          <input 
-            type="number" 
-            value={inputState} 
-            onChange={(e) => setInputState(e.target.value)} 
-            placeholder="Enter NORAD ID"
-            style={{ padding: "8px", borderRadius: "4px", border: "none", width: "150px" }}
-          />
-          <button type="submit" style={{ padding: "8px 16px", cursor: "pointer", borderRadius: "4px", backgroundColor: "#333", color: "white", border: "1px solid #555" }}>
-            Search
-          </button>
-          <button type="button" onClick={() => fetchGlobeData(targetId)} style={{ padding: "8px 16px", cursor: "pointer", borderRadius: "4px", backgroundColor: "#1e88e5", color: "white", border: "none" }}>
-            Refresh Data
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setIsTracking(!isTracking)} 
-            disabled={!data}
-            style={{ 
-              padding: "8px 16px", 
-              cursor: data ? "pointer" : "not-allowed", 
-              borderRadius: "4px", 
-              backgroundColor: isTracking ? "#ff3300" : "#4caf50",
-              color: "white", 
-              border: "none",
-              opacity: data ? 1 : 0.5
-            }}
-          >
-            {isTracking ? "Stop Tracking" : "Track Target"}
-          </button>
-        </form>
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0,
+        backgroundImage: "radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0,0,0,0)), radial-gradient(1px 1px at 40px 70px, #ffffff, rgba(0,0,0,0)), radial-gradient(1px 1px at 50px 160px, #ffffff, rgba(0,0,0,0)), radial-gradient(1px 1px at 90px 40px, #ffffff, rgba(0,0,0,0)), radial-gradient(1px 1px at 130px 80px, #ffffff, rgba(0,0,0,0))",
+        backgroundRepeat: "repeat",
+        backgroundSize: "200px 200px",
+        opacity: 0.3
+      }} />
 
-        {/* --- NEW: Time Scale Slider UI --- */}
-        <div style={{ backgroundColor: "rgba(0,0,0,0.5)", padding: "12px", borderRadius: "8px", width: "fit-content" }}>
-          <label style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-            <span>Simulation Speed:</span>
-            <strong>{timeScale}x</strong>
-          </label>
-          <input 
-            type="range" 
-            min="1" 
-            max="200" 
-            value={timeScale} 
-            onChange={(e) => setTimeScale(Number(e.target.value))}
-            style={{ width: "300px", cursor: "pointer" }}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#aaa", marginTop: "4px" }}>
-            <span>Real Time</span>
-            <span>Fast Forward</span>
+      <style>{`
+        @keyframes orbit {
+          0% { transform: rotate(-15deg) rotate(0deg); }
+          100% { transform: rotate(-15deg) rotate(360deg); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-12px); }
+        }
+        .sat-container {
+          transform-origin: 150px 150px;
+          animation: orbit 10s linear infinite;
+        }
+        .hero-graphic {
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: 1fr 1.5fr 1fr;
+          gap: 24px;
+          width: 100%;
+          max-width: 1200px;
+          margin-top: 30px;
+          z-index: 1;
+        }
+        
+        .glass-card {
+          background: rgba(30, 41, 59, 0.5);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 16px;
+          padding: 24px;
+          backdrop-filter: blur(10px);
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .center-highlight {
+          background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.2);
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+        }
+
+        @media (max-width: 960px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr;
+            max-width: 500px;
+          }
+        }
+      `}</style>
+
+      <div style={{ zIndex: 1, textAlign: "center", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        
+        <div className="hero-graphic" style={{ width: "180px", height: "180px", marginBottom: "15px" }}>
+          <svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="150" cy="150" r="95" fill="#4facfe" opacity="0.3" filter="blur(10px)" />
+            <circle cx="150" cy="150" r="85" fill="#1e88e5" />
+            <path d="M 100 80 Q 130 60 160 80 T 180 120 Q 150 140 120 130 T 100 80 Z" fill="#4caf50" />
+            <path d="M 180 170 Q 210 160 220 190 T 190 220 Q 160 210 180 170 Z" fill="#4caf50" />
+            <path d="M 80 160 Q 100 150 110 180 T 80 200 Z" fill="#4caf50" />
+            <path d="M 100 100 Q 110 90 130 100" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.6" />
+            <path d="M 160 180 Q 180 170 200 180" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.6" />
+            <ellipse cx="150" cy="150" rx="140" ry="40" fill="none" stroke="#ffffff" strokeWidth="2" strokeDasharray="6,6" transform="rotate(-15 150 150)" opacity="0.4" />
+            <g className="sat-container">
+              <g transform="translate(270, 140)">
+                <rect x="-10" y="-15" width="8" height="30" fill="#64b5f6" rx="1" />
+                <rect x="12" y="-15" width="8" height="30" fill="#64b5f6" rx="1" />
+                <rect x="0" y="-5" width="10" height="10" fill="#e0e0e0" rx="2" />
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <h1 style={{ fontSize: "3.5rem", margin: "0 0 5px 0", letterSpacing: "3px", color: "#ffffff", fontWeight: "800", textShadow: "0 4px 20px rgba(79, 172, 254, 0.4)" }}>
+          ORBIX
+        </h1>
+        <h2 style={{ fontSize: "1.1rem", fontWeight: "400", color: "#93c5fd", margin: "0" }}>
+          Live Orbital Mechanics & Threat Detection
+        </h2>
+      </div>
+
+      <div className="dashboard-grid">
+        
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <div className="glass-card">
+            <h3 style={{ margin: "0 0 10px 0", color: "#fff", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>🛰️</span> What We Do
+            </h3>
+            <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.9rem", lineHeight: "1.6" }}>
+              We monitor the skies. Orbix tracks thousands of active satellites and space debris fragments to calculate mathematical collision probabilities in real-time.
+            </p>
+          </div>
+
+          <div className="glass-card">
+            <h3 style={{ margin: "0 0 10px 0", color: "#fff", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>📡</span> Our Data
+            </h3>
+            <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.9rem", lineHeight: "1.6" }}>
+              Powered by live Two-Line Element (TLE) sets sourced directly from the <strong>18th Space Defense Squadron</strong> via Celestrak.
+            </p>
           </div>
         </div>
 
-        {loading && <p style={{ margin: 0 }}>Loading coordinates...</p>}
-        {error && <p style={{ color: "#ff4444", margin: 0 }}>{error}</p>}
-        {data && !loading && <p style={{ color: "#88ccff", margin: 0 }}>Tracking ID: {targetId}</p>}
+        <div className="glass-card center-highlight">
+          <div style={{ background: "rgba(59, 130, 246, 0.1)", borderRadius: "50%", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "28px", marginBottom: "20px" }}>
+            🌍
+          </div>
+          <h3 style={{ margin: "0 0 12px 0", color: "#fff", fontSize: "1.5rem" }}>Live 3D Tracker</h3>
+          <p style={{ margin: "0 0 30px 0", color: "#cbd5e1", fontSize: "0.95rem", lineHeight: "1.6", maxWidth: "90%" }}>
+            Enter the interactive 3D environment. Visually inspect orbital planes, track assets in real-time, and analyze potential collision threats directly on the globe.
+          </p>
+          <Link href="/globe" style={{ textDecoration: "none", width: "100%", maxWidth: "300px" }}>
+            <button style={{
+              width: "100%",
+              padding: "16px 32px",
+              fontSize: "1.1rem",
+              fontWeight: "bold",
+              color: "#ffffff",
+              background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+              border: "1px solid #60a5fa",
+              borderRadius: "50px",
+              cursor: "pointer",
+              boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)",
+              transition: "transform 0.2s ease",
+            }}>
+              Launch 3D Globe
+            </button>
+          </Link>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div className="glass-card" style={{ flexGrow: 1, justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+             <h3 style={{ margin: "0 0 12px 0", color: "#fff", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>🔄</span> Database Management
+            </h3>
+            <p style={{ margin: "0 0 25px 0", color: "#94a3b8", fontSize: "0.9rem", lineHeight: "1.6" }}>
+              Ensure collision mathematics are perfectly accurate by synchronizing the system with the absolute latest orbital parameters.
+            </p>
+            
+            <button 
+              onClick={handleSync}
+              disabled={isSyncing}
+              style={{
+                width: "100%",
+                padding: "14px 24px",
+                fontSize: "1rem",
+                fontWeight: "bold",
+                color: "#ffffff",
+                background: isSyncing ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: "50px",
+                cursor: isSyncing ? "not-allowed" : "pointer",
+                backdropFilter: "blur(5px)",
+                transition: "background 0.2s ease",
+              }}
+            >
+              {isSyncing ? "Syncing..." : "Sync Database"}
+            </button>
+
+            <div style={{ minHeight: "40px", marginTop: "16px", width: "100%" }}>
+              {syncMessage ? (
+                <div style={{ 
+                  fontSize: "0.85rem", 
+                  fontWeight: "bold",
+                  color: syncMessage.type === 'error' ? "#ef4444" : syncMessage.type === 'success' ? "#10b981" : "#60a5fa",
+                  animation: "fadeIn 0.3s ease-in"
+                }}>
+                  {syncMessage.text}
+                </div>
+              ) : (
+                <div style={{ fontSize: "0.75rem", color: "#64748b", fontStyle: "italic" }}>
+                  Action manually triggers a backend memory reload from Celestrak telemetry.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
-
-      <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
-        <color attach="background" args={["#000000"]} />
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1.5} />
-        
-        <OrbitControls makeDefault enablePan={true} enableZoom={true} enableRotate={true} />
-
-        <Sphere args={[1, 64, 64]}>
-          <meshStandardMaterial color="#1e88e5" roughness={0.6} />
-        </Sphere>
-
-        {/* Passed timeScale into the FleetManager */}
-        <FleetManager data={data} targetId={targetId} isTracking={isTracking} timeScale={timeScale} />
-      </Canvas>
-    </div>
+    </main>
   );
 }

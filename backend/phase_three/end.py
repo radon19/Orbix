@@ -1,6 +1,6 @@
 import numpy as np
 
-HBR_KM = 0.010
+HBR_KM = 0.020
 SIGMA_R_KM  = 0.050
 SIGMA_T_KM  = 0.500
 SIGMA_N_KM  = 0.050
