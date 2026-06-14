@@ -31,7 +31,7 @@
 - [System Architecture](#system-architecture)
 - [Tech Stack](#tech-stack)
 - [Engineering Highlights](#-engineering-highlights)
-- [Accuracy Validation](#-accuracy-validation-cross-checked-against-us-space-command-cdms)
+- [Accuracy Validation](#accuracy-validation)
 - [Future Scalability](#-future-scalability)
 - [Quick Start](#-quick-start)
 - [Roadmap](#-roadmap)
@@ -190,7 +190,7 @@ These are the decisions that separate Orbix from a weekend hack.
 **Type safety end-to-end.** Pydantic models enforce API contracts at the boundary — malformed requests are rejected before a single line of domain logic runs. TypeScript interfaces on the frontend mirror every response shape.
 
 ---
-
+<a id="accuracy-validation"></a>
 ## 🧪 Accuracy Validation — Cross-Checked Against U.S. Space Command CDMs
 
 > This section is what distinguishes Orbix from projects that simply display data. The algorithm was independently validated against real government conjunction screening output.
