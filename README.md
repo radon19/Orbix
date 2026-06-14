@@ -18,7 +18,7 @@
 
 ---
 
-<!-- //screenshot: hero — full landing page with animated globe, glassy mission-control cards, and starfield background -->
+![image alt](https://github.com/radon19/Orbix/blob/21f482e2762b569f530afd22e64a712d522a9152/frontend/screenshot.png)
 
 ---
 
