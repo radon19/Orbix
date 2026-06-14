@@ -28,8 +28,8 @@
 - [Overview](#-overview)
 - [Real-World Impact](#-real-world-impact)
 - [Features](#-features)
-- [System Architecture](#-system-architecture)
-- [Tech Stack](#-tech-stack)
+- [System Architecture](#system-architecture)
+- [Tech Stack](#tech-stack)
 - [Engineering Highlights](#-engineering-highlights)
 - [Accuracy Validation](#-accuracy-validation-cross-checked-against-us-space-command-cdms)
 - [Future Scalability](#-future-scalability)
@@ -96,7 +96,7 @@ A structured screening pipeline that goes from 28,000 objects → orbital candid
 Four concurrent async downloads from Celestrak refresh the full ~28,000-object catalog and hot-reload it in memory — no server restart, no downtime.
 
 ---
-
+<a id="system-architecture"></a>
 ## 🏗️ System Architecture
 
 ```
@@ -159,7 +159,7 @@ Sorted threat report
 → Deep dive in the [Backend README](./backend/README.md#how-it-works)
 
 ---
-
+<a id="tech-stack"></a>
 ## 🛠️ Tech Stack
 
 | Layer | Technology | Why |
