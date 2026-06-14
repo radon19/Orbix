@@ -16,6 +16,7 @@ def get_processed_dataframe() -> pd.DataFrame:
     
     df['PERIGEE'] = semi_major_axis * (1 - df['ECCENTRICITY']) - EARTH_RADIUS
     df['APOGEE']  = semi_major_axis * (1 + df['ECCENTRICITY']) - EARTH_RADIUS
+    print(len(df))
     
     return df
 
