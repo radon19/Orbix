@@ -10,11 +10,11 @@ For the project-wide pitch, architecture diagram, and "why this matters" framing
 
 - [Tech Stack](#%EF%B8%8F-tech-stack)
 - [Project Structure](#-project-structure)
-- [Setup](#-setup)
+- [Setup](#setup)
 - [Environment Variables](#-environment-variables)
 - [Pages](#-pages)
 - [Design System Notes](#-design-system-notes)
-- [Known Issues / TODO](#-known-issues--todo)
+- [Known Issues / TODO](#known-issues--todo)
 
 ---
 
@@ -48,7 +48,7 @@ frontend/
 ```
 
 ---
-
+<a id="setup"></a>
 ## ⚙️ Setup
 
 **1. Install dependencies:**
@@ -141,7 +141,7 @@ The UI follows a consistent "mission control" aesthetic across all three pages:
 - Tailwind CSS v4 (via `@tailwindcss/postcss`) is configured for utility classes, while the landing and threats pages currently lean on inline styles and `<style>` blocks for fine-grained animation control (orbiting/floating keyframes, etc.).
 
 ---
-
+<a id="known-issues--todo"></a>
 ## ⚠️ Known Issues / TODO
 
 - **`app/threats/page.tsx` currently hardcodes `API_BASE_URL = "http://127.0.0.1:8000"`** instead of reading `NEXT_PUBLIC_API_URL` like the other pages. If you deploy the backend somewhere other than `127.0.0.1:8000`, update this constant (or refactor it to use the shared env variable) before the Threats page will work.
