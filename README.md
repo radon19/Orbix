@@ -28,10 +28,10 @@
 - [Overview](#-overview)
 - [Real-World Impact](#-real-world-impact)
 - [Features](#-features)
-- [System Architecture](#-system-architecture)
-- [Tech Stack](#-tech-stack)
+- [System Architecture](#system-architecture)
+- [Tech Stack](#tech-stack)
 - [Engineering Highlights](#-engineering-highlights)
-- [Accuracy Validation](#-accuracy-validation-cross-checked-against-us-space-command-cdms)
+- [Accuracy Validation](#accuracy-validation)
 - [Future Scalability](#-future-scalability)
 - [Quick Start](#-quick-start)
 - [Roadmap](#-roadmap)
@@ -96,7 +96,7 @@ A structured screening pipeline that goes from 28,000 objects → orbital candid
 Four concurrent async downloads from Celestrak refresh the full ~28,000-object catalog and hot-reload it in memory — no server restart, no downtime.
 
 ---
-
+<a id="system-architecture"></a>
 ## 🏗️ System Architecture
 
 ```
@@ -159,7 +159,7 @@ Sorted threat report
 → Deep dive in the [Backend README](./backend/README.md#how-it-works)
 
 ---
-
+<a id="tech-stack"></a>
 ## 🛠️ Tech Stack
 
 | Layer | Technology | Why |
@@ -190,7 +190,7 @@ These are the decisions that separate Orbix from a weekend hack.
 **Type safety end-to-end.** Pydantic models enforce API contracts at the boundary — malformed requests are rejected before a single line of domain logic runs. TypeScript interfaces on the frontend mirror every response shape.
 
 ---
-
+<a id="accuracy-validation"></a>
 ## 🧪 Accuracy Validation — Cross-Checked Against U.S. Space Command CDMs
 
 > This section is what distinguishes Orbix from projects that simply display data. The algorithm was independently validated against real government conjunction screening output.
